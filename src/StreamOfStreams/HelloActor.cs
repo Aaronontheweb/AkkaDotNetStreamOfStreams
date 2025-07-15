@@ -1,4 +1,4 @@
-﻿namespace Akka.Console;
+﻿namespace StreamOfStreams;
 
 public class HelloActor : ReceiveActor
 {

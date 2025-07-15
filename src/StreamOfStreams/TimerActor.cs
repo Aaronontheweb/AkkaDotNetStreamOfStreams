@@ -1,6 +1,6 @@
 using Akka.Hosting;
 
-namespace Akka.Console;
+namespace StreamOfStreams;
 
 public class TimerActor : ReceiveActor, IWithTimers
 {

@@ -1,5 +1,5 @@
 ﻿using Akka.Hosting;
-using Akka.Console;
+using StreamOfStreams;
 using Microsoft.Extensions.Hosting;
 
 var hostBuilder = new HostBuilder();
