@@ -14,9 +14,18 @@ public sealed record Entity(string EntityId) : IWithEntityId;
 /// Some metadata for an entity.
 /// </summary>
 /// <param name="SomeScalar">An arbitrary scalar value</param>
-public sealed record EntityMetadata(double SomeScalar, double PreviousAverage);
+public sealed record EntityMetadata(Entity Entity, double SomeScalar, double PreviousAverage);
 
 public sealed record DataPoint(double Value, DateTimeOffset Timestamp);
+
+public sealed record ComputationResults(
+    EntityMetadata Metadata,
+    double Average,
+    double StandardDeviation,
+    double PreviousAverage, DateTime Timestamp)
+{
+    public string EntityId => Metadata.Entity.EntityId;
+}
 
 public static class EntityData
 {
@@ -30,6 +39,7 @@ public static class EntityData
         // This is just a placeholder for whatever logic you want to implement.
         var random = Random.Shared;
         return new EntityMetadata(
+            entity,
             SomeScalar: random.NextDouble() * 100,
             PreviousAverage: random.NextDouble() * 50);
     }
