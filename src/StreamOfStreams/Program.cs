@@ -1,6 +1,7 @@
 ﻿using Akka.Hosting;
 using StreamOfStreams;
 using Microsoft.Extensions.Hosting;
+using StreamOfStreams.Data;
 using StreamOfStreams.Storage;
 
 var hostBuilder = new HostBuilder();
@@ -26,6 +27,19 @@ hostBuilder.ConfigureServices((context, services) =>
                 var s3WriterActor = system.ActorOf(Props.Create(() => new S3WriterActor()), "S3WriterActor");
                 // Register the S3WriterActor
                 registry.Register<S3WriterActor>(s3WriterActor);
+            })
+            .WithActors((system, registry) =>
+            {
+                var processorActorProps = ProcessorActor.PropsFor(system);
+                var processorActor = system.ActorOf(processorActorProps, "ProcessorActor");
+                // Register the ProcessorActor
+                registry.Register<ProcessorActor>(processorActor);
+            })
+            .AddStartup(async (system, registry) =>
+            {
+                var processorActor = await registry.GetAsync<ProcessorActor>();
+                await processorActor.Ask<ProcessorActor.ProcessingComplete>(new ProcessorActor.ProcessEntities(EntityData.Entities), TimeSpan.FromMinutes(1));
+                system.Log.Info("Finished processing all entities.");
             });
     });
 });

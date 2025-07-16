@@ -8,7 +8,7 @@ public sealed class S3WriterActor : UntypedActor
 {
     public sealed record WriteToS3(ComputationResults EntityWithDataPoints);
     
-    public sealed record WriteResult(bool Success, string Message);
+    public sealed record WriteResult(bool Success, string Message) : IWriteResult;
     
     private readonly ILoggingAdapter _log = Context.GetLogger();
     
@@ -18,10 +18,15 @@ public sealed class S3WriterActor : UntypedActor
         {
             case WriteToS3 writeToS3:
                 _log.Info($"Received request to write data for entity {writeToS3.EntityWithDataPoints.EntityId} to S3.");
-                
+
+                _ = DoWrite();
+                break;
+
                 // Simulate writing to S3
-                RunTask(async () =>
+                async Task DoWrite()
                 {
+                    var sender = Sender;   
+                    
                     // Simulate some delay
                     await Task.Delay(Random.Shared.Next(1, 2000));
                     
@@ -29,11 +34,9 @@ public sealed class S3WriterActor : UntypedActor
                     var result = new WriteResult(true, $"Successfully wrote data for entity {writeToS3.EntityWithDataPoints.EntityId} to S3.");
                     _log.Info(result.Message);
                     
-                    Sender.Tell(result);
-                });
-                
-                break;
-            
+                    sender.Tell(result);
+                }
+
             default:
                 Unhandled(message);
                 break;
