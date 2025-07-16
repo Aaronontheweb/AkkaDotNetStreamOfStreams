@@ -10,6 +10,12 @@ public interface IWithEntityId
 /// </summary>
 public sealed record Entity(string EntityId) : IWithEntityId;
 
+public interface IWriteResult
+{
+    bool Success { get; }
+    string Message { get; }
+}
+
 /// <summary>
 /// Some metadata for an entity.
 /// </summary>
@@ -29,9 +35,9 @@ public sealed record ComputationResults(
 
 public static class EntityData
 {
-    public static IEnumerable<Entity> Entities =>
-        Enumerable.Range(1, 100)
-            .Select(i => new Entity($"Entity-{i}"));
+    public static IReadOnlyList<Entity> Entities =>
+        Enumerable.Range(10, 200)
+            .Select(i => new Entity($"Entity-{i}")).ToList();
     
     public static EntityMetadata GenerateMetadata(Entity entity)
     {
