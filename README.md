@@ -1,70 +1,129 @@
-# build-system-template
-Akka.NET project build system template that provides standardized build and CI/CD configuration for all Akka.NET projects.
+# StreamOfStreams - Akka.NET Streaming Demo
 
-## Build System Overview
-This repository contains our standardized build system setup that can be used across all Akka.NET projects. Here are the key components and practices we follow:
+An [Akka.NET](https://getakka.net/) demonstration project showcasing advanced streaming patterns using Akka Streams and the Actor model. This project implements a "stream of streams" architecture where each entity produces its own stream of data points that are processed in parallel.
 
-### CI/CD Configuration
-We primarily use GitHub Actions for our CI/CD pipelines, but also maintain Azure DevOps pipeline examples. You can find the configuration examples in:
-- `.github/workflows/` - GitHub Actions pipeline examples
-- `.azuredevops/` - Azure DevOps pipeline examples
+## Overview
 
-### SDK Version Management
-We use `global.json` to pin the .NET SDK version for both CI/CD environments and local development. This ensures consistent builds across all environments and developers.
+This application demonstrates how to:
+- Process multiple entity streams concurrently using Akka.NET actors and Akka Streams
+- Use `SourceRef` to create distributed streams of data points
+- Perform real-time statistical computations on streaming data
+- Write results to multiple storage backends concurrently
+- Integrate Akka actors with Akka Streams for complex data processing pipelines
 
-### .NET Tools
-We use local .NET tools to enhance our build and documentation process. The tools are configured in `.config/dotnet-tools.json` and include:
+## Architecture
 
-- [Incrementalist](https://github.com/petabridge/Incrementalist) (v1.0.0-beta4) - Used for determining which projects need to be rebuilt based on Git changes
-- [DocFx](https://dotnet.github.io/docfx/) (v2.78.3) - Used for generating documentation
+The application consists of several key actors that work together to process entity data:
 
-To restore these tools in your local environment, run:
-```powershell
-dotnet tool restore
+### Core Actors
+
+- **DataPointActor** - Generates entity metadata and creates `SourceRef<DataPoint>` streams for each entity
+- **ProcessorActor** - Main orchestrator that processes entities, consumes data streams, performs statistical calculations, and coordinates storage operations
+- **DynamoDbWriterActor** - Simulates writing computation results to AWS DynamoDB
+- **S3WriterActor** - Simulates writing computation results to AWS S3
+
+### Data Flow
+
+1. **Entity Processing**: The application processes 200 entities (Entity-10 through Entity-209)
+2. **Stream Creation**: Each entity gets its own stream of 5-50 randomly generated data points
+3. **Parallel Processing**: Multiple entity streams are processed concurrently with configurable parallelism
+4. **Statistical Computation**: For each entity stream, the system calculates:
+   - Average of data point values
+   - Standard deviation
+   - Blended average incorporating previous historical data
+5. **Concurrent Storage**: Results are written simultaneously to both DynamoDB and S3
+6. **Backpressure Management**: Akka Streams handles flow control and backpressure automatically
+
+## Key Features
+
+### Stream of Streams Pattern
+Demonstrates how to manage multiple independent data streams where each entity produces its own stream of data points that are processed independently but orchestrated centrally.
+
+### Parallelism Control
+```csharp
+private const int MaxDataPointsParallelism = 5;
+private const int MaxSubStreamParallelism = 5;
 ```
 
-This command is automatically executed in our CI/CD pipelines (both GitHub Actions and Azure DevOps) to ensure tools are available during builds.
+### SourceRef Integration
+Uses Akka Streams `SourceRef` to create materialized stream references that can be passed between actors:
 
-### Centralized Package and Build Management
-We utilize two key MSBuild files for centralized configuration:
-
-1. `Directory.Packages.props` - Implements [Central Package Version Management](https://learn.microsoft.com/nuget/consume-packages/Central-Package-Management) for consistent NuGet package versions across all projects in the solution.
-
-2. `Directory.Build.props` - Defines common build properties, including:
-   - Copyright and author information
-   - Source linking configuration
-   - NuGet package metadata
-   - Common compiler settings
-   - Target framework definitions
-
-### Code Coverage Configuration
-The `coverlet.runsettings` file configures code coverage collection using Coverlet, with settings for:
-- Multiple coverage report formats (JSON, Cobertura, LCOV, TeamCity, OpenCover)
-- Test assembly exclusions
-- Source linking integration
-- Performance optimizations
-
-### Release Management
-Our release process is streamlined through:
-- `RELEASE_NOTES.md` - Contains version history and release notes
-- `build.ps1` - PowerShell script that processes release notes and updates version information
-- Supporting scripts in `/scripts`:
-  - `bumpVersion.ps1` - Updates version numbers
-  - `getReleaseNotes.ps1` - Parses release notes
-
-The build system primarily relies on standard `dotnet` CLI commands, with the PowerShell scripts mainly handling release note processing and version management.
-
-### Solution Format
-We prefer the new `.slnx` XML-based solution format over the traditional `.sln` format. This requires .NET 9 SDK or later. The new format is more concise and easier to work with. You can migrate existing solutions using:
-
-```powershell
-dotnet sln migrate
+```csharp
+var sourceRef = await Source.From(dataPoints)
+    .RunWith(streamRef, _materializer);
 ```
 
-For more information about the new `.slnx` format, see the [official announcement](https://devblogs.microsoft.com/dotnet/introducing-slnx-support-dotnet-cli/).
+### Statistical Processing
+Performs streaming aggregations using Akka Streams operators:
+- `Aggregate` for accumulating statistics
+- `Select` for transforming data
+- `IdleTimeout` for handling processing timeouts
+
+### Concurrent Storage Operations
+Writes results to multiple storage systems concurrently using `Task.WhenAll`:
+
+```csharp
+var writeToDynamo = _dynamoDbWriterActor.ActorRef.Ask<IWriteResult>(...);
+var writeToS3 = _s3WriterActor.ActorRef.Ask<IWriteResult>(...);
+var results = await Task.WhenAll(writeToDynamo, writeToS3);
+```
+
+## Technology Stack
+
+- **.NET 9.0** - Target framework
+- **Akka.NET** - Actor framework and streaming library
+- **Akka.Hosting** - Dependency injection integration
+- **Microsoft.Extensions.Hosting** - Host builder and application lifetime management
 
 ## Getting Started
-1. Ensure you have the correct .NET SDK version installed (check `global.json`)
-2. Clone this repository
-3. Run `dotnet build` to verify the build system
-4. Customize the configuration files for your specific project needs
+
+### Prerequisites
+- .NET 9.0 SDK or later
+
+### Running the Application
+
+1. Clone the repository
+2. Navigate to the project directory
+3. Build the project:
+   ```bash
+   dotnet build
+   ```
+4. Run the application:
+   ```bash
+   dotnet run --project src/StreamOfStreams
+   ```
+
+The application will:y
+1. Process 200 entities in parallel
+2. Generate random data points for each entity
+3. Perform statistical calculations on each entity's data stream
+4. Write results to simulated DynamoDB and S3 storage
+5. Log progress and completion status
+
+### Expected Output
+
+The application will log information about:
+- Entity processing start and completion
+- Data point generation for each entity
+- Statistical computation results
+- Storage operation success/failure
+- Overall processing completion
+
+## Use Cases
+
+This pattern is useful for scenarios such as:
+- **IoT Data Processing** - Processing sensor data streams from multiple devices
+- **Financial Analytics** - Real-time analysis of trading data from multiple instruments
+- **Log Processing** - Analyzing log streams from multiple services or applications
+- **Machine Learning Pipelines** - Processing feature streams for multiple models
+- **Event Sourcing** - Processing event streams from multiple aggregates
+
+## Learning Objectives
+
+This project demonstrates:
+- Advanced Akka Streams patterns and operators
+- Integration between Akka actors and Akka Streams
+- Backpressure handling in streaming applications
+- Concurrent processing with parallelism controls
+- Actor-based dependency injection using Akka.Hosting
+- Error handling and timeout management in streaming pipelines
